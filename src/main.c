@@ -23,12 +23,10 @@
  *
  */
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "bsp/board.h"
-#include "tusb.h"
+#include "generated/ws2812.pio.h"
 
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
@@ -40,32 +38,41 @@
  * - 2500 ms : device is suspended
  */
 enum  {
-  BLINK_NOT_MOUNTED = 250,
-  BLINK_MOUNTED = 1000,
-  BLINK_SUSPENDED = 2500,
+  COLOR_NOT_MOUNTED = 0x004000,
+  COLOR_MOUNTED = 0x000020,
+  COLOR_SUSPENDED = 0x00004,
 };
+#define WS2812_STATE_MACHINE 0
+#define WS2812_PIO pio0
 
-static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
-
-void led_blinking_task(void);
 void cdc_task(void);
 
+static inline void put_pixel(uint32_t pixel_grb) {
+    pio_sm_put_blocking(pio0, 0, pixel_grb << 8u);
+}
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "EndlessLoop"
 /*------------- MAIN -------------*/
 int main(void)
 {
   board_init();
   tusb_init();
-
+//  stdio_init_all();
+  printf("WS2812 Smoke Test, using pin %d", PICO_DEFAULT_WS2812_PIN);
+  uint offset = pio_add_program(WS2812_PIO, &ws2812_program);
+  ws2812_program_init(WS2812_PIO, WS2812_STATE_MACHINE, offset, PICO_DEFAULT_WS2812_PIN, 800000, false);
+  put_pixel(COLOR_NOT_MOUNTED);
+  sleep_ms(10);
   while (1)
   {
     tud_task(); // tinyusb device task
-    led_blinking_task();
+//    led_blinking_task();
 
     cdc_task();
   }
 
-  return 0;
 }
+#pragma clang diagnostic pop
 
 //--------------------------------------------------------------------+
 // Device callbacks
@@ -74,13 +81,13 @@ int main(void)
 // Invoked when device is mounted
 void tud_mount_cb(void)
 {
-  blink_interval_ms = BLINK_MOUNTED;
+    put_pixel(COLOR_MOUNTED);
 }
 
 // Invoked when device is unmounted
 void tud_umount_cb(void)
 {
-  blink_interval_ms = BLINK_NOT_MOUNTED;
+    put_pixel(COLOR_NOT_MOUNTED);
 }
 
 // Invoked when usb bus is suspended
@@ -89,13 +96,14 @@ void tud_umount_cb(void)
 void tud_suspend_cb(bool remote_wakeup_en)
 {
   (void) remote_wakeup_en;
-  blink_interval_ms = BLINK_SUSPENDED;
+  put_pixel(COLOR_SUSPENDED);
+
 }
 
 // Invoked when usb bus is resumed
 void tud_resume_cb(void)
 {
-  blink_interval_ms = BLINK_MOUNTED;
+  put_pixel(COLOR_MOUNTED);
 }
 
 
@@ -146,20 +154,4 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
 void tud_cdc_rx_cb(uint8_t itf)
 {
   (void) itf;
-}
-
-//--------------------------------------------------------------------+
-// BLINKING TASK
-//--------------------------------------------------------------------+
-void led_blinking_task(void)
-{
-  static uint32_t start_ms = 0;
-  static bool led_state = false;
-
-  // Blink every interval ms
-  if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
-  start_ms += blink_interval_ms;
-
-  board_led_write(led_state);
-  led_state = 1 - led_state; // toggle
 }

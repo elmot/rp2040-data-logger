@@ -15,6 +15,7 @@ include(pico_sdk_import.cmake)
 project(rp2040-data-logger C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
+set(PICO_BOARD sparkfun_promicro)
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
@@ -29,7 +30,7 @@ add_executable(rp2040-data-logger
 
 pico_set_program_name(rp2040-data-logger "rp2040-data-logger")
 pico_set_program_version(rp2040-data-logger "0.1")
-
+pico_generate_pio_header(rp2040-data-logger ${CMAKE_SOURCE_DIR}/src/ws2812.pio OUTPUT_DIR ${CMAKE_SOURCE_DIR}/src/generated)
 
 # Add the standard library to the build
 target_link_libraries(rp2040-data-logger pico_stdlib)
@@ -63,6 +64,8 @@ target_link_libraries(rp2040-data-logger
         hardware_clocks
         )
 
-target_include_directories(rp2040-data-logger PRIVATE src)
+target_include_directories(rp2040-data-logger PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/generated)
 pico_add_extra_outputs(rp2040-data-logger)
 

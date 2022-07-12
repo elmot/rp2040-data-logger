@@ -37,11 +37,7 @@ enum {
 
 _Noreturn void cdc_task(void *params);
 
-#if CFG_TUSB_DEBUG
-#define USBD_STACK_SIZE     (3*configMINIMAL_STACK_SIZE)
-#else
-#define USBD_STACK_SIZE     (3*configMINIMAL_STACK_SIZE/2)
-#endif
+#define USBD_STACK_SIZE     (4*configMINIMAL_STACK_SIZE)
 
 StackType_t usb_device_stack[USBD_STACK_SIZE];
 StaticTask_t usb_device_taskdef;
@@ -51,7 +47,7 @@ StaticTask_t usb_device_taskdef;
 StackType_t cdc_stack[CDC_STACK_SIZE];
 StaticTask_t cdc_taskdef;
 
-static inline void put_pixel(uint32_t pixel_grb) {
+/* todo uncomment static inline */void put_pixel(uint32_t pixel_grb) {
     pio_sm_put_blocking(pio0, 0, pixel_grb << 8u);
 }
 

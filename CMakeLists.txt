@@ -27,6 +27,10 @@ add_executable(rp2040-data-logger
         src/freertos_hook.c
         ${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/family.c
         )
+set_target_properties(rp2040-data-logger
+        PROPERTIES
+        PICO_TARGET_LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/memmap_128k.ld
+)
 
 pico_set_program_name(rp2040-data-logger "rp2040-data-logger")
 pico_set_program_version(rp2040-data-logger "0.1")
@@ -39,20 +43,24 @@ target_compile_definitions(rp2040-data-logger PRIVATE
         CFG_TUSB_MCU=OPT_MCU_RP2040
         CFG_TUSB_OS=OPT_OS_FREERTOS
         )
-include(tinyusb-cdc-msc.cmake)
-include(FreeRTOS.cmake)
-# Add any user requested libraries
-target_link_libraries(rp2040-data-logger
-        hardware_pio
-        hardware_timer
-        hardware_watchdog
-        hardware_clocks
-        FreeRTOS-RP2040-Kernel
-        )
-
 target_include_directories(rp2040-data-logger PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/generated
         )
 
+include(tinyusb-cdc-msc.cmake)
+
+include(FreeRTOS.cmake)
+
+# Add any user requested libraries
+target_link_libraries(rp2040-data-logger
+        hardware_clocks
+        hardware_flash
+        hardware_pio
+        hardware_sync
+        hardware_timer
+        hardware_watchdog
+        FreeRTOS-RP2040-Kernel
+        )
+target_link_options(rp2040-data-logger PRIVATE -Wl,--print-memory-usage)
 pico_add_extra_outputs(rp2040-data-logger)

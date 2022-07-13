@@ -26,7 +26,7 @@ add_executable(rp2040-data-logger
         src/tusb_config.h
         src/freertos_hook.c
         ${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/family.c
-        )
+        src/main.h src/indicator.c src/cdc_uart.c)
 set_target_properties(rp2040-data-logger
         PROPERTIES
         PICO_TARGET_LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/memmap_128k.ld

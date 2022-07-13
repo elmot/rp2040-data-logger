@@ -26,8 +26,7 @@
 #include "hardware/sync.h"
 #include "hardware/flash.h"
 #include "tusb.h"
-
-#if CFG_TUD_MSC
+#include "main.h"
 
 // whether host does safe-eject
 static bool ejected = false;
@@ -88,6 +87,7 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
         } else {
             // unload disk storage
             ejected = true;
+            disk_status(DISK_STATUS_DOWN, false);
         }
     }
 
@@ -97,10 +97,11 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Callback invoked when received READ10 command.
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
-    if (lun != 0) return -1;
+    (void) lun;
 
     // out of ramdisk
     if (lba >= DISK_BLOCK_NUM) return -1;
+    disk_status(DISK_STATUS_UP, true);
     uint32_t addr = XIP_BASE + FLASH_RESERVED_SIZE + lba * DISK_BLOCK_SIZE + offset;
     memcpy(buffer, (void *) addr, bufsize);
 
@@ -112,8 +113,6 @@ bool tud_msc_is_writable_cb(uint8_t lun) {
 
     return true;
 }
-
-extern void put_pixel(uint32_t pixel_grb);
 
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
@@ -129,15 +128,13 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *
         assert(true);
     }
     uint32_t addr = FLASH_RESERVED_SIZE + lba * DISK_BLOCK_SIZE;
-    put_pixel(0xFFFF00);//todo to separate task
+    disk_status(DISK_STATUS_UP, true);
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(addr, DISK_BLOCK_SIZE);
     restore_interrupts(ints);
-    put_pixel(0xFF0000);//todo to separate task
     ints = save_and_disable_interrupts();
     flash_range_program(addr, buffer, (bufsize + 255) & ~0xFF);
     restore_interrupts(ints);
-    put_pixel(0xFF);//todo to separate task
 
     return (long) bufsize;
 }
@@ -182,5 +179,3 @@ int32_t tud_msc_scsi_cb(uint8_t lun, uint8_t const scsi_cmd[16], void *buffer, u
 
     return resplen;
 }
-
-#endif

@@ -31,12 +31,6 @@
 #include "common/tusb_common.h"
 
 
-void vApplicationMallocFailedHook(void)
-{
-  taskDISABLE_INTERRUPTS();
-  TU_ASSERT(false, );
-}
-
 void vApplicationStackOverflowHook(xTaskHandle pxTask, char *pcTaskName)
 {
   (void) pxTask;

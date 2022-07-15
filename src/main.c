@@ -33,6 +33,11 @@
 //todo accu voltage control
 //todo switch log/disk mode
 //todo publish baro data via USB CDC
+//todo ublox gps setup for high altitudes
+//todo yield calls **
+//todo power save?
+// - USB sleep
+// - FREQ down when USB disconnected?
 
 #define USBD_STACK_SIZE     (4*configMINIMAL_STACK_SIZE)
 
@@ -51,6 +56,7 @@ _Noreturn void usb_device_task(void *param) {
     while (1) {
         // tinyusb device task
         tud_task();
+        taskYIELD();
     }
 }
 

@@ -30,18 +30,15 @@
 //todo button erase
 //todo ws2812 matrix data indication
 //todo altitude data table?
-
-_Noreturn void cdc_task(void *params);
+//todo accu voltage control
+//todo switch log/disk mode
+//todo publish baro data via USB CDC
 
 #define USBD_STACK_SIZE     (4*configMINIMAL_STACK_SIZE)
 
 StackType_t usb_device_stack[USBD_STACK_SIZE];
 StaticTask_t usb_device_taskdef;
 
-// static task for cdc
-#define CDC_STACK_SIZE      configMINIMAL_STACK_SIZE
-StackType_t cdc_stack[CDC_STACK_SIZE];
-StaticTask_t cdc_taskdef;
 
 _Noreturn void usb_device_task(void *param) {
     (void) param;
@@ -64,15 +61,13 @@ _Noreturn void usb_device_task(void *param) {
 int main(void) {
     board_init();
     tusb_init();
-    printf("WS2812 Smoke Test, using pin %d", PICO_DEFAULT_WS2812_PIN);
     indicator_init();
+    serial_init();
     disk_status(DISK_STATUS_NOINIT, false);
     uart_status(UART_STATUS_NOINIT, false);
 
     (void) xTaskCreateStatic(usb_device_task, "usbd", USBD_STACK_SIZE, NULL, configMAX_PRIORITIES - 1, usb_device_stack,
                              &usb_device_taskdef);
-
-    (void) xTaskCreateStatic(cdc_task, "cdc", CDC_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, cdc_stack, &cdc_taskdef);
 
     vTaskStartScheduler();
 

@@ -7,6 +7,7 @@
 
 #include "bsp/board.h"
 #include "generated/ws2812.pio.h"
+#include "task.h"
 
 enum DISK_STATUS {
     DISK_STATUS_NOINIT,
@@ -24,5 +25,5 @@ enum UART_STATUS {
 void disk_status(enum DISK_STATUS, bool xchange);
 void uart_status(enum UART_STATUS, bool xchange);
 void indicator_init(void);
-
+void serial_init();
 #endif //RP2040_DATA_LOGGER_MAIN_H

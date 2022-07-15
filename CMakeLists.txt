@@ -59,6 +59,7 @@ target_link_libraries(rp2040-data-logger
         hardware_pio
         hardware_sync
         hardware_timer
+        hardware_uart
         hardware_watchdog
         FreeRTOS-RP2040-Kernel
         )

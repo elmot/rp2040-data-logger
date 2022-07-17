@@ -1,44 +1,10 @@
-/* 
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- */
-
-#include "hardware/sync.h"
+#include <stdlib.h>
 #include "hardware/flash.h"
 #include "tusb.h"
 #include "main.h"
 
-// whether host does safe-eject
-static bool ejected = false;
+#include "disk_data.inc"
 
-enum {
-    FLASH_RESERVED_SIZE = 0x20000,
-    DISK_BLOCK_NUM = (PICO_FLASH_SIZE_BYTES - FLASH_RESERVED_SIZE) / 4096, // 16MB - 128K
-    DISK_BLOCK_SIZE = FLASH_SECTOR_SIZE
-};
-
-// Invoked when received SCSI_CMD_INQUIRY
-// Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {
     (void) lun;
 
@@ -51,22 +17,10 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
     memcpy(product_rev, rev, strlen(rev));// NOLINT(bugprone-not-null-terminated-result)
 }
 
-// Invoked when received Test Unit Ready command.
-// return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
-    (void) lun;
-
-    // RAM disk is ready until ejected
-    if (ejected) {
-        tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
-        return false;
-    }
-
-    return true;
+    return lun == 0;
 }
 
-// Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
-// Application update block count and block size
 void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_size) {
     (void) lun;
 
@@ -74,79 +28,71 @@ void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_siz
     *block_size = DISK_BLOCK_SIZE;
 }
 
-// Invoked when received Start Stop Unit command
-// - Start = 0 : stopped power mode, if load_eject = 1 : unload disk storage
-// - Start = 1 : active mode, if load_eject = 1 : load disk storage
-bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, bool load_eject) {
-    (void) lun;
-    (void) power_condition;
+int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufSize) {
+    if (lun != 0) return -1;
+    if (offset != 0) return -1;
+    disk_status(DISK_STATUS_UP, true);
+    char *ptr = buffer;
+    size_t bytesLeft = bufSize;
 
-    if (load_eject) {
-        if (start) {
-            // load disk storage
-        } else {
-            // unload disk storage
-            ejected = true;
-            disk_status(DISK_STATUS_DOWN, false);
+    while (bytesLeft > 0) {
+        if (lba >= DISK_BLOCK_NUM) return -1;
+        size_t bytesToRead = MIN(bytesLeft, DISK_BLOCK_SIZE);
+        memset(ptr, 0, bytesToRead);
+        switch (lba) {
+            case 0: /* Boot sector */
+                memcpy(buffer, BOOT_SECTOR_HEAD, MIN(sizeof(BOOT_SECTOR_HEAD), bytesToRead));
+                if (bytesLeft >= 511) {
+                    ptr[510] = 0x55;
+                }
+                if (bytesLeft >= 512) {
+                    ptr[511] = 0xAA;
+                }
+                break;
+            case RESERVED_SECTORS:
+            case RESERVED_SECTORS + FAT_SECTORS: /* FAT */
+                ptr[0] = 0xF8; //head entry #1
+                ptr[1] = 0xFF;
+                ptr[2] = 0xFF; //head entry #2
+                ptr[3] = 0xFF;
+                ptr[4] = 0xFF; //eof
+                ptr[5] = 0xFF;
+                break;
+            case (RESERVED_SECTORS + FAT_SECTORS * 2): /* Root directory */
+                memcpy(ptr, fake_dir, sizeof fake_dir);
+                break;
+            default:
+            {
+                int dataBlock = (int)lba - RESERVED_SECTORS - 2*FAT_SECTORS - ROOT_SECTORS;
+                if(dataBlock>=0) {
+                    memset(ptr, ' ', bufSize);
+                    itoa((int) dataBlock, ptr, 10);
+                    ptr[strlen(ptr)] = '!';
+                }
+            }
+
         }
+        lba++;
+        bytesLeft-=bytesToRead;
+//    uint32_t addr = XIP_BASE + FLASH_RESERVED_SIZE + lba * DISK_BLOCK_SIZE;
+//    memcpy(buffer, (void *) addr, bufsize);
     }
-
-    return true;
+    return (long) bufSize;
 }
 
-// Callback invoked when received READ10 command.
-// Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
-int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
-    (void) lun;
-
-    // out of ramdisk
-    if (lba >= DISK_BLOCK_NUM) return -1;
-    disk_status(DISK_STATUS_UP, true);
-    uint32_t addr = XIP_BASE + FLASH_RESERVED_SIZE + lba * DISK_BLOCK_SIZE + offset;
-    memcpy(buffer, (void *) addr, bufsize);
-
-    return (long) bufsize;
+bool tud_msc_is_writable_cb(uint8_t __unused lun) {
+    return false;
 }
 
-bool tud_msc_is_writable_cb(uint8_t lun) {
-    (void) lun;
-
-    return true;
+int32_t tud_msc_write10_cb(uint8_t __unused lun, __unused uint32_t __unused lba, __unused uint32_t offset,
+                           __unused uint8_t *buffer, __unused uint32_t bufsize) {
+    return -1;// Always Write-protected
 }
 
-// Callback invoked when received WRITE10 command.
-// Process data in buffer to disk's storage and return number of written bytes
-int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
-    (void) lun;
-
-    // out of ramdisk
-    if (lba >= DISK_BLOCK_NUM) return -1;
-    if (offset != 0) {
-        assert(true);
-    }
-    if (bufsize > DISK_BLOCK_SIZE) {
-        assert(true);
-    }
-    uint32_t addr = FLASH_RESERVED_SIZE + lba * DISK_BLOCK_SIZE;
-    disk_status(DISK_STATUS_UP, true);
-    uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(addr, DISK_BLOCK_SIZE);
-    restore_interrupts(ints);
-    ints = save_and_disable_interrupts();
-    flash_range_program(addr, buffer, (bufsize + 255) & ~0xFF);
-    restore_interrupts(ints);
-
-    return (long) bufsize;
-}
-
-// Callback invoked when received an SCSI command not in built-in list below
-// - READ_CAPACITY10, READ_FORMAT_CAPACITY, INQUIRY, MODE_SENSE6, REQUEST_SENSE
-// - READ10 and WRITE10 has their own callbacks
 int32_t tud_msc_scsi_cb(uint8_t lun, uint8_t const scsi_cmd[16], void *buffer, uint16_t bufsize) {
-    // read10 & write10 has their own callback and MUST not be handled here
 
     void const *response = NULL;
-    int32_t resplen = 0;
+    int32_t respLen = 0;
 
     // most scsi handled is input
     bool in_xfer = true;
@@ -154,28 +100,27 @@ int32_t tud_msc_scsi_cb(uint8_t lun, uint8_t const scsi_cmd[16], void *buffer, u
     switch (scsi_cmd[0]) {
         case SCSI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
             // Host is about to read/write etc ... better not to disconnect disk
-            resplen = 0;
+            respLen = 0;
             break;
 
         default:
             // Set Sense = Invalid Command Operation
             tud_msc_set_sense(lun, SCSI_SENSE_ILLEGAL_REQUEST, 0x20, 0x00);
 
-            // negative means error -> tinyusb could stall and/or response with failed status
-            resplen = -1;
+            // error -> tinyusb could stall and/or response with failed status
+            respLen = -1;
             break;
     }
 
-    // return resplen must not larger than bufsize
-    if (resplen > bufsize) resplen = bufsize;
+    if (respLen > bufsize) respLen = bufsize;
 
-    if (response && (resplen > 0)) {
+    if (response && (respLen > 0)) {
         if (in_xfer) {
-            memcpy(buffer, response, resplen);
+            memcpy(buffer, response, respLen);
         } else {
             // SCSI output
         }
     }
 
-    return resplen;
+    return respLen;
 }

@@ -23,8 +23,6 @@
  *
  */
 #include "main.h"
-//todo fake filesystem
-//todo write protection
 //todo gps data collection
 //todo baro data collection
 //todo button erase

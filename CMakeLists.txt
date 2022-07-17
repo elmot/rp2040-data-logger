@@ -20,13 +20,18 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 add_executable(rp2040-data-logger
+        src/disk_data.inc
+        src/data_processing.c
+        src/cdc_uart.c
+        src/main.h
+        src/freertos_hook.c
+        src/indicator.c
         src/main.c
         src/msc_disk.c
-        src/usb_descriptors.c
         src/tusb_config.h
-        src/freertos_hook.c
+        src/usb_descriptors.c
         ${PICO_SDK_PATH}/lib/tinyusb/hw/bsp/rp2040/family.c
-        src/main.h src/indicator.c src/cdc_uart.c)
+        )
 set_target_properties(rp2040-data-logger
         PROPERTIES
         PICO_TARGET_LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/memmap_128k.ld

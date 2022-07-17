@@ -33,7 +33,7 @@ typedef struct __attribute__((__packed__)) {
     }
         signature: 8;
     struct __attribute__((__packed__)) {
-        unsigned int year: 7;
+        unsigned int year2020: 7;
         unsigned int month: 4;
         unsigned int day: 5;
         unsigned int hour: 5;
@@ -43,22 +43,24 @@ typedef struct __attribute__((__packed__)) {
     struct __attribute__((__packed__)) {
         unsigned int latNorth: 1;
         unsigned int latDeg: 7;
-        unsigned int latMin: 6;
-        unsigned int lat100000min: 17;
+        unsigned int latMin_x_100000: 23;
         unsigned int lonEast: 1;
         unsigned int lonDeg: 8;
-        unsigned int lonMin: 6;
-        unsigned int lon100000min: 17;
+        unsigned int lonMin_x_100000: 23;
         int altM: 17;
     } position;
     struct __attribute__((__packed__)) {
-        int speedKmH: 9;
-        unsigned int headDegree: 9;
+        unsigned int speedKmH_x_10: 16;
+        int headDegree: 9;
     } move;
     unsigned int satInView: 6;
-    unsigned int pressureKPaQ11_4: 15;
+    unsigned int pressureKPa_x_10: 15;
 } MEASUREMENT;
 #define MEASUREMENT_SIZE (32)
+#define FLASH_RESERVED_SIZE (0x20000)
+
+#define MAX_MEASUREMENT_RECORDS ((PICO_FLASH_SIZE_BYTES - FLASH_RESERVED_SIZE) / MEASUREMENT_SIZE)
 static_assert(sizeof(MEASUREMENT) <=MEASUREMENT_SIZE, "MEASUREMENT struct size");
+
 
 #endif //RP2040_DATA_LOGGER_MAIN_H

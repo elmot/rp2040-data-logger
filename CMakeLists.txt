@@ -20,7 +20,6 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 add_executable(rp2040-data-logger
-        src/disk_data.inc
         src/data_processing.c
         src/cdc_uart.c
         src/main.h

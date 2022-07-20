@@ -33,6 +33,9 @@ static MEASUREMENT __empty = {
 MEASUREMENT *getMeasurement(size_t idx) {
     // return ((MEASUREMENT*) XIP_BASE + FLASH_RESERVED_SIZE) + idx;todo production code
     __fake_measurement.position.latDeg_x_1000000000 = 60 * DEG_DIVIDER + idx * 1000000;
+    __fake_measurement.dateTime.hour = idx / 3600;
+    __fake_measurement.dateTime.min = (idx / 60) % 60;
+    __fake_measurement.dateTime.sec = idx % 60;
     return (idx < 20000) ? &__fake_measurement : &__empty;
 }
 
@@ -95,7 +98,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
             int dataBlock = (int) lba - DISK_FIRST_DATA_BLK;
             if(dataBlock >=0)
             {
-                fillDataSector(dataBlock, ptr, bytesToRead);
+                gpxFillDataSector(dataBlock, ptr, bytesToRead);
             }
         }
         lba++;

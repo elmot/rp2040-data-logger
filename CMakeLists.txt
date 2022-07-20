@@ -23,6 +23,8 @@ add_executable(rp2040-data-logger
         src/data_processing.c
         src/cdc_uart.c
         src/disk_data.c
+        src/disk_data_gpx.c
+        src/disk_data_csv.c
         src/main.h
         src/freertos_hook.c
         src/indicator.c

@@ -93,7 +93,20 @@ void fillBootSector(uint8_t *ptr, size_t bytesToRead);
 
 void fillFat(unsigned int fatLba, uint8_t *ptr, size_t bytesLeft);
 
-void fillDataSector(unsigned int dataLba, uint8_t *ptr, size_t bytesLeft);
+unsigned int gpxFileClustersNoTail();
 
+unsigned long gpxFileLength();
+
+void gpxFillDataSector(unsigned int dataLba, uint8_t *ptr, size_t bytesLeft);
+
+static unsigned int csvFileClustersNoTail();
+
+static unsigned long csvFileLength();
+
+void csvFataSectorCsv(unsigned int dataLba, uint8_t *ptr, size_t bytesLeft);
+
+#define WORD_TO_BYTES(w) ((unsigned char) (w)), ((unsigned char) (((unsigned int) (w)) >> 8))
+#define DWORD_TO_BYTES(d) ((unsigned char) (d)), ((unsigned char) (((unsigned int) (d)) >> 8)), \
+                            ((unsigned char) (((unsigned int) (d)) >> 16)), ((unsigned char) (((unsigned int) (d)) >> 24))
 
 #endif //RP2040_DATA_LOGGER_MAIN_H

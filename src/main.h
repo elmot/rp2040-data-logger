@@ -23,8 +23,11 @@ enum UART_STATUS {
 };
 
 void disk_status(enum DISK_STATUS, bool xchange);
+
 void uart_status(enum UART_STATUS, bool xchange);
+
 void indicator_init(void);
+
 void serial_init();
 
 typedef struct __attribute__((__packed__)) {
@@ -41,12 +44,10 @@ typedef struct __attribute__((__packed__)) {
         unsigned int sec: 6;
     } dateTime;
     struct __attribute__((__packed__)) {
-        unsigned int latNorth: 1;
-        unsigned int latDeg: 7;
-        unsigned int latMin_x_100000: 23;
-        unsigned int lonEast: 1;
-        unsigned int lonDeg: 8;
-        unsigned int lonMin_x_100000: 23;
+        bool latNorth: 1;
+        unsigned long long latDeg_x_1000000000: 40;
+        bool lonEast: 1;
+        unsigned long long lonDeg_x_1000000000: 40;
         int altM: 17;
     } position;
     struct __attribute__((__packed__)) {
@@ -56,11 +57,43 @@ typedef struct __attribute__((__packed__)) {
     unsigned int satInView: 6;
     unsigned int pressureKPa_x_10: 15;
 } MEASUREMENT;
+#define DEG_DIVIDER (1000000000LL)
 #define MEASUREMENT_SIZE (32)
 #define FLASH_RESERVED_SIZE (0x20000)
 
 #define MAX_MEASUREMENT_RECORDS ((PICO_FLASH_SIZE_BYTES - FLASH_RESERVED_SIZE) / MEASUREMENT_SIZE)
-static_assert(sizeof(MEASUREMENT) <=MEASUREMENT_SIZE, "MEASUREMENT struct size");
+static_assert(sizeof(MEASUREMENT) <= MEASUREMENT_SIZE, "MEASUREMENT struct size");
+
+MEASUREMENT *getMeasurement(size_t idx);
+
+unsigned int getMeasurementCnt();
+
+void resetMeasurementCnt();//todo when written
+
+enum {
+    DISK_SIZE_MB = 2000,
+    DISK_SIZE = DISK_SIZE_MB * 1024 * 1024,
+    DISK_SECT_SIZE = CFG_TUD_MSC_EP_BUFSIZE,
+    DISK_SECT_NUM = DISK_SIZE / DISK_SECT_SIZE,
+    DISK_SECT_NUM_SHORT = (DISK_SECT_NUM > 65535) ? 0 : DISK_SECT_NUM,
+    DISK_SECT_NUM_LARGE = (DISK_SECT_NUM <= 65535) ? 0 : DISK_SECT_NUM,
+    DISK_CLUSTER_SIZE = 32 * 1024, // 32KB
+    DISK_SECT_PER_CLUSTER = DISK_CLUSTER_SIZE / DISK_SECT_SIZE,
+    DISK_FAT_BYTES = (DISK_SIZE / DISK_CLUSTER_SIZE) * 2,
+    DISK_FAT_SECTORS = MAX((DISK_FAT_BYTES + DISK_SECT_SIZE - 1) / DISK_SECT_SIZE, DISK_SECT_PER_CLUSTER),
+    DISK_RESERVED_SECTORS = DISK_SECT_PER_CLUSTER,
+    DISK_ROOT_SECTORS = DISK_SECT_PER_CLUSTER,
+    DISK_ROOT_ENTRIES = DISK_ROOT_SECTORS * DISK_SECT_SIZE / 32,
+    DISK_FIRST_DATA_BLK = DISK_RESERVED_SECTORS + 2 * DISK_FAT_SECTORS + DISK_ROOT_SECTORS
+};
+
+void fillRootDirectoryData(uint8_t *buffer, size_t bytesLeft);
+
+void fillBootSector(uint8_t *ptr, size_t bytesToRead);
+
+void fillFat(unsigned int fatLba, uint8_t *ptr, size_t bytesLeft);
+
+void fillDataSector(unsigned int dataLba, uint8_t *ptr, size_t bytesLeft);
 
 
 #endif //RP2040_DATA_LOGGER_MAIN_H

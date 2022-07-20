@@ -22,6 +22,7 @@ pico_sdk_init()
 add_executable(rp2040-data-logger
         src/data_processing.c
         src/cdc_uart.c
+        src/disk_data.c
         src/main.h
         src/freertos_hook.c
         src/indicator.c

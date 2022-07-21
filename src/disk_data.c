@@ -1,5 +1,4 @@
 #include "main.h"
-
 unsigned char BOOT_SECTOR_HEAD[0x27] = {
     0xEB, 0x3C, 0x90, //Jump instruction
     'E', 'L', 'M', 'O', 'T', '2', '.', '0', //OEM NAME
@@ -29,7 +28,7 @@ static const char fake_dir[] = {
     WORD_TO_BYTES(0), // Empty file
     DWORD_TO_BYTES(0), // Empty file
 
-    'L', 'E', 'F', 'T', '_', '1', '0', '0', '%', ' ', ' ', //NAME todo update
+    'L', 'E', 'F', 'T', '_', '1', '0', '0', '%', ' ', ' ', //NAME
     0x20,// Normal File, archive
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //reserved
     WORD_TO_BYTES((21 << 11) | (40 << 5) | (4 >> 1)), // time 21:40.04
@@ -38,22 +37,54 @@ static const char fake_dir[] = {
     WORD_TO_BYTES(0), // Empty file
     DWORD_TO_BYTES(0), // Empty file
 
-    '0', '0', '-', 'X', 'X', '-', '0', '0', 'G', 'P', 'X', //NAME todo update
+    '0', '0', '-', 'X', 'X', '-', '0', '0', 'G', 'P', 'X', //NAME
     0x20,// Normal File, archive
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //reserved
     WORD_TO_BYTES(0), // time
     WORD_TO_BYTES(0), // date
     WORD_TO_BYTES(2), //starting cluster #2
-    DWORD_TO_BYTES(10000), // 10KiB todo update
+    DWORD_TO_BYTES(10000), // 10KiB
+
+    '0', '0', '-', 'X', 'X', '-', '0', '0', 'C', 'S', 'V', //NAME
+    0x20,// Normal File, archive
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //reserved
+    WORD_TO_BYTES(0), // time
+    WORD_TO_BYTES(0), // date
+    WORD_TO_BYTES(DISK_CSV_FIRST_DATA_CLUSTER), //starting cluster #2
+    DWORD_TO_BYTES(10000), // 10KiB
 };
 
 
-void intToCharArray(uint8_t *string, unsigned int value, unsigned int digits) {
+void updateFileLength(uint8_t *lengthBuffer, unsigned long length);
+
+unsigned int longLongToCharArray(uint8_t *string, uint64_t value, unsigned int digits) {
+    unsigned int cnt = digits;
     do {
-        --digits;
-        string[digits] = '0' + value % 10;
+        --cnt;
+        string[cnt] = '0' + value % 10;
         value /= 10;
-    } while (digits > 0);
+    } while (cnt > 0);
+    return digits;
+}
+
+unsigned int uI64ToCharArray(uint8_t *string, uint64_t value, unsigned int digits) {
+    unsigned int cnt = digits;
+    do {
+        --cnt;
+        string[cnt] = '0' + value % 10;
+        value /= 10;
+    } while (cnt > 0);
+    return digits;
+}
+
+unsigned int uIntToCharArray(uint8_t *string, unsigned int value, unsigned int digits) {
+    unsigned int cnt = digits;
+    do {
+        --cnt;
+        string[cnt] = '0' + value % 10;
+        value /= 10;
+    } while (cnt > 0);
+    return digits;
 }
 
 void fillBootSector(uint8_t *ptr, size_t bytesToRead) {
@@ -89,20 +120,20 @@ static inline void updateFileName(uint8_t *fileRecordPtr, MEASUREMENT *recordPtr
         {'N', 'V'},
         {'D', 'E'}
     };
-    intToCharArray(fileRecordPtr, recordPtr->dateTime.day, 2);
+    uIntToCharArray(fileRecordPtr, recordPtr->dateTime.day, 2);
     fileRecordPtr[3] = MONTH_NAMES[recordPtr->dateTime.month - 1][0];
     fileRecordPtr[4] = MONTH_NAMES[recordPtr->dateTime.month - 1][1];
-    intToCharArray(fileRecordPtr + 2 + 4, recordPtr->dateTime.year2020 + 20, 2);
+    uIntToCharArray(fileRecordPtr + 2 + 4, recordPtr->dateTime.year2020 + 20, 2);
 }
 
 void fillRootDirectoryData(uint8_t *buffer, size_t bytesLeft) {
     unsigned int emptyRecIdx = getMeasurementCnt();
     if (emptyRecIdx == 0) { //No data, no data file
         memcpy(buffer, fake_dir, 32 * 2); // volume label + LEFT_100.% file
-        memset(buffer + 32 * 3, 0, bytesLeft - 32 * 2);
+        memset(buffer + 32 * 2, 0, bytesLeft - 32 * 2);
     } else {
-        memcpy(buffer, fake_dir, 32 * 3); // volume label + LEFT_100.% file + data file
-        memset(buffer + 32 * 3, 0, bytesLeft - 32 * 3);
+        memcpy(buffer, fake_dir, 32 * 4); // volume label + LEFT_100.% file + 2 data files
+        memset(buffer + 32 * 4, 0, bytesLeft - 32 * 4);
         MEASUREMENT *lastRec = getMeasurement(emptyRecIdx - 1);
         unsigned int percent = 100 - emptyRecIdx * 100 / MAX_MEASUREMENT_RECORDS;
 
@@ -111,18 +142,25 @@ void fillRootDirectoryData(uint8_t *buffer, size_t bytesLeft) {
         uint16_t timeWord =
             (lastRec->dateTime.hour << 11) | (lastRec->dateTime.min << 5) | (lastRec->dateTime.sec >> 1);
         //Indicator file name
-        intToCharArray(buffer + 32 + 5, percent, 3);
+        uIntToCharArray(buffer + 32 + 5, percent, 3);
         updateFileDate(buffer + 32, dateWord, timeWord);
-        //Data file name
+        //GPX File
         updateFileName(buffer + 32 * 2, lastRec);
         updateFileDate(buffer + 32 * 2, dateWord, timeWord);
-        unsigned long length = gpxFileLength();
-        for (int i = 0; i < 8; i++) {
-            buffer[32 * 2 + 28 + i] = (uint8_t) length;
-            length = length >> 8;
-        }
+        updateFileLength(buffer + 32 * 2, gpxFileLength());
+        //CSV File
+        updateFileName(buffer + 32 * 3, lastRec);
+        updateFileDate(buffer + 32 * 3, dateWord, timeWord);
+        updateFileLength(buffer + 32 * 3, csvFileLength());
     }
 
+}
+
+void updateFileLength(uint8_t *lengthBuffer, unsigned long length) {
+    for (int i = 0; i < 4; i++) {
+        lengthBuffer[28 + i] = (uint8_t) length;
+        length = length >> 8;
+    }
 }
 
 void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
@@ -138,13 +176,16 @@ void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
     } else {
         currentCluster = fatLba * DISK_SECT_SIZE / 2;
     }
-    unsigned int lastCluster = gpxFileClustersNoTail() + 3;
+    unsigned int gpsLastCluster = gpxFileClustersNoTail() + 3;
+    unsigned int csvLastCluster = DISK_CSV_FIRST_DATA_CLUSTER + csvFileClusters();
     while (bytesLeft > 0) {
-        if (currentCluster < lastCluster) {
+        if ((currentCluster < gpsLastCluster)
+        ||(currentCluster < csvLastCluster) && (currentCluster>=DISK_CSV_FIRST_DATA_CLUSTER))
+        {
             currentCluster++;
             *(ptr++) = (uint8_t) currentCluster;
             *(ptr++) = currentCluster >> 8;
-        } else if (currentCluster == lastCluster) {
+        } else if ((currentCluster == gpsLastCluster) || (currentCluster == csvLastCluster)) {
             currentCluster++;
             *(ptr++) = 0xFF;
             *(ptr++) = 0xFF;
@@ -154,5 +195,4 @@ void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
         }
         bytesLeft -= 2;
     }
-    asm("nop");
 }

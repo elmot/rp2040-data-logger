@@ -9,12 +9,12 @@ const char GPX_TRK_TAIL[] = "    </trkseg>\n"
                             "  </trk>\n"
                             "</gpx>";
 //todo test high north west
-const char GPX_TRK_RECORD[] = "\n      <trkpt lat=\"-60.36352501250\" lon=\"-128.61095768399\">\n"
+const char GPX_TRK_RECORD[] = "\n      <trkpt lat=\"-60.363525012\" lon=\"-128.610957683\">\n"
                               "        <ele>12000</ele>\n"
                               "        <time>2022-07-17T22:58:43Z</time>\n"
                               "        <cmt>mBar: 1056.11</cmt>\n"
                               "      </trkpt>";
-const char GPX_TRK_FMT[] = "\n      <trkpt lat=\"%02d.%09lld\" lon=\"%03d.%09lld\">\n"
+const char GPX_TRK_FMT[] = "\n      <trkpt lat=\"%03d.%09lld\" lon=\"%04d.%09lld\">\n"
                            "        <ele>%5d</ele>\n"
                            "        <time>%04d-%02d-%02dT%02d:%02d:%02dZ</time>\n"
                            "        <cmt>mBar: %4d.%02d</cmt>\n"
@@ -24,8 +24,8 @@ enum {
     GPX_HEAD_LEN = sizeof GPX_HEAD - 1,
     GPX_TAIL_LEN = sizeof GPX_TRK_TAIL - 1,
     GPX_RECORD_LEN = sizeof GPX_TRK_RECORD - 1,
-    GPX_RECORD_PER_SECT = (DISK_SECT_SIZE + GPX_RECORD_LEN - 1) / GPX_RECORD_LEN,
-    GPX_RECORD_PER_FIRST_SECT = (DISK_SECT_SIZE - GPX_HEAD_LEN + GPX_RECORD_LEN - 1) / GPX_RECORD_LEN
+    GPX_RECORD_PER_SECT = (DISK_SECT_SIZE) / GPX_RECORD_LEN,
+    GPX_RECORD_PER_FIRST_SECT = (DISK_SECT_SIZE - GPX_HEAD_LEN) / GPX_RECORD_LEN
 };
 
 static unsigned int gpxFileSectorsNoTail() {

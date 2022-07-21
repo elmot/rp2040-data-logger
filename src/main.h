@@ -71,7 +71,7 @@ unsigned int getMeasurementCnt();
 void resetMeasurementCnt();//todo when written
 
 enum {
-    DISK_SIZE_MB = 2000,
+    DISK_SIZE_MB = 256,
     DISK_SIZE = DISK_SIZE_MB * 1024 * 1024,
     DISK_SECT_SIZE = CFG_TUD_MSC_EP_BUFSIZE,
     DISK_SECT_NUM = DISK_SIZE / DISK_SECT_SIZE,
@@ -84,7 +84,9 @@ enum {
     DISK_RESERVED_SECTORS = DISK_SECT_PER_CLUSTER,
     DISK_ROOT_SECTORS = DISK_SECT_PER_CLUSTER,
     DISK_ROOT_ENTRIES = DISK_ROOT_SECTORS * DISK_SECT_SIZE / 32,
-    DISK_FIRST_DATA_BLK = DISK_RESERVED_SECTORS + 2 * DISK_FAT_SECTORS + DISK_ROOT_SECTORS
+    DISK_GPX_FIRST_DATA_SECT = DISK_RESERVED_SECTORS + 2 * DISK_FAT_SECTORS + DISK_ROOT_SECTORS,
+    DISK_CSV_FIRST_DATA_CLUSTER = 2 + (DISK_SECT_NUM - DISK_GPX_FIRST_DATA_SECT) /DISK_SECT_PER_CLUSTER /2,
+    DISK_CSV_FIRST_DATA_SECT = (DISK_CSV_FIRST_DATA_CLUSTER - 2) * DISK_SECT_PER_CLUSTER + DISK_GPX_FIRST_DATA_SECT
 };
 
 void fillRootDirectoryData(uint8_t *buffer, size_t bytesLeft);
@@ -99,11 +101,14 @@ unsigned long gpxFileLength();
 
 void gpxFillDataSector(unsigned int dataLba, uint8_t *ptr, size_t bytesLeft);
 
-static unsigned int csvFileClustersNoTail();
+unsigned int csvFileClusters();
 
-static unsigned long csvFileLength();
+unsigned long csvFileLength();
 
-void csvFataSectorCsv(unsigned int dataLba, uint8_t *ptr, size_t bytesLeft);
+unsigned int uIntToCharArray(uint8_t *string, unsigned int value, unsigned int digits);
+unsigned int uI64ToCharArray(uint8_t *string, uint64_t value, unsigned int digits);
+
+void csvFillDataSector(unsigned int dataLba, uint8_t *ptr, int bytesLeft);
 
 #define WORD_TO_BYTES(w) ((unsigned char) (w)), ((unsigned char) (((unsigned int) (w)) >> 8))
 #define DWORD_TO_BYTES(d) ((unsigned char) (d)), ((unsigned char) (((unsigned int) (d)) >> 8)), \

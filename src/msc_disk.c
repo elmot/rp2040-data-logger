@@ -94,12 +94,12 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
             fillFat(lba - DISK_RESERVED_SECTORS - DISK_FAT_SECTORS, ptr, bytesToRead);
         } else if (lba == DISK_RESERVED_SECTORS + DISK_FAT_SECTORS * 2) {
             fillRootDirectoryData(ptr, bytesToRead);
+        } else if ((lba >= DISK_GPX_FIRST_DATA_SECT) && (lba < DISK_CSV_FIRST_DATA_SECT)) {
+            gpxFillDataSector(lba - DISK_GPX_FIRST_DATA_SECT, ptr, bytesToRead);
+        } else if ((lba >= DISK_CSV_FIRST_DATA_SECT)) {
+            csvFillDataSector(lba - DISK_CSV_FIRST_DATA_SECT, ptr, bytesToRead);
         } else {
-            int dataBlock = (int) lba - DISK_FIRST_DATA_BLK;
-            if(dataBlock >=0)
-            {
-                gpxFillDataSector(dataBlock, ptr, bytesToRead);
-            }
+            memset(buffer, 0x00, bytesLeft);
         }
         lba++;
         bytesLeft -= bytesToRead;

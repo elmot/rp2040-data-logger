@@ -72,9 +72,7 @@ int main(void) {
 
     (void) xTaskCreateStatic(usb_device_task, "usbd", USBD_STACK_SIZE, NULL, configMAX_PRIORITIES - 1, usb_device_stack,
                              &usb_device_taskdef);
-
     vTaskStartScheduler();
-
 }
 
 #pragma clang diagnostic pop

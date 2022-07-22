@@ -1,4 +1,6 @@
 #include "main.h"
+#include "hardware/flash.h"
+
 unsigned char BOOT_SECTOR_HEAD[0x27] = {
     0xEB, 0x3C, 0x90, //Jump instruction
     'E', 'L', 'M', 'O', 'T', '2', '.', '0', //OEM NAME
@@ -180,8 +182,7 @@ void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
     unsigned int csvLastCluster = DISK_CSV_FIRST_DATA_CLUSTER + csvFileClusters();
     while (bytesLeft > 0) {
         if ((currentCluster < gpsLastCluster)
-        ||(currentCluster < csvLastCluster) && (currentCluster>=DISK_CSV_FIRST_DATA_CLUSTER))
-        {
+            || (currentCluster < csvLastCluster) && (currentCluster >= DISK_CSV_FIRST_DATA_CLUSTER)) {
             currentCluster++;
             *(ptr++) = (uint8_t) currentCluster;
             *(ptr++) = currentCluster >> 8;
@@ -195,4 +196,8 @@ void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
         }
         bytesLeft -= 2;
     }
+}
+
+void disk_erase() {
+    flash_range_erase(FLASH_RESERVED_SIZE, PICO_FLASH_SIZE_BYTES - FLASH_RESERVED_SIZE);
 }

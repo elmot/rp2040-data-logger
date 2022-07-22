@@ -12,8 +12,7 @@
 enum DISK_STATUS {
     DISK_STATUS_NOINIT,
     DISK_STATUS_UP,
-    DISK_STATUS_DOWN,
-    DISK_STATUS_ERASING
+    DISK_STATUS_DOWN
 };
 
 enum UART_STATUS {
@@ -94,6 +93,12 @@ void fillRootDirectoryData(uint8_t *buffer, size_t bytesLeft);
 void fillBootSector(uint8_t *ptr, size_t bytesToRead);
 
 void fillFat(unsigned int fatLba, uint8_t *ptr, size_t bytesLeft);
+
+/**
+ *
+ * @return true when last part is erased
+ */
+bool disk_part_erase();
 
 unsigned int gpxFileClustersNoTail();
 

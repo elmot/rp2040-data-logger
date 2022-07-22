@@ -1,4 +1,7 @@
 #include "main.h"
+#include "hardware/flash.h"
+#include "hardware/watchdog.h"
+
 unsigned char BOOT_SECTOR_HEAD[0x27] = {
     0xEB, 0x3C, 0x90, //Jump instruction
     'E', 'L', 'M', 'O', 'T', '2', '.', '0', //OEM NAME
@@ -180,8 +183,7 @@ void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
     unsigned int csvLastCluster = DISK_CSV_FIRST_DATA_CLUSTER + csvFileClusters();
     while (bytesLeft > 0) {
         if ((currentCluster < gpsLastCluster)
-        ||(currentCluster < csvLastCluster) && (currentCluster>=DISK_CSV_FIRST_DATA_CLUSTER))
-        {
+            || (currentCluster < csvLastCluster) && (currentCluster >= DISK_CSV_FIRST_DATA_CLUSTER)) {
             currentCluster++;
             *(ptr++) = (uint8_t) currentCluster;
             *(ptr++) = currentCluster >> 8;
@@ -195,4 +197,43 @@ void fillFat(unsigned int fatLba, uint8_t *buffer, size_t bytesLeft) {
         }
         bytesLeft -= 2;
     }
+}
+
+/**
+ *
+ * @return true if the flash is clear
+ */
+void verify_partly_clean_flash() {
+    if(getMeasurement(0)->signature != EMPTY) return;
+    bool erased = true;
+    for(int i = 1; erased && (i < MAX_MEASUREMENT_RECORDS); i++) {
+        erased = getMeasurement(i)->signature == EMPTY;
+    }
+    if(!erased) {
+        disk_erase();
+    }
+}
+
+bool disk_part_erase(bool start) {
+    static int flash_offset;
+    if (start) {
+        flash_offset = FLASH_RESERVED_SIZE;
+    }
+    flash_range_erase(flash_offset, FLASH_BLOCK_SIZE);
+    flash_offset += FLASH_BLOCK_SIZE;
+    return flash_offset >= PICO_FLASH_SIZE_BYTES;
+}
+
+void disk_erase() {
+    vTaskSuspendAll();
+    tud_disconnect();
+    portDISABLE_INTERRUPTS();
+    disk_part_erase(true);
+    do {
+        pixelErasing1();
+        if (disk_part_erase(false)) break;
+        pixelErasing2();
+    } while (!disk_part_erase(false));
+    watchdog_reboot(0, 0,300);
+    while (1);
 }

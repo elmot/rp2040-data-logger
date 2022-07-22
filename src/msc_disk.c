@@ -36,6 +36,7 @@ MEASUREMENT *getMeasurement(size_t idx) {
     __fake_measurement.dateTime.hour = idx / 3600;
     __fake_measurement.dateTime.min = (idx / 60) % 60;
     __fake_measurement.dateTime.sec = idx % 60;
+    __fake_measurement.signature = FIX;
     return (idx < 20000) ? &__fake_measurement : &__empty;
 }
 

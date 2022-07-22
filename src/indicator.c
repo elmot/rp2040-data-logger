@@ -1,11 +1,15 @@
 //
 // Created by Ilia.Motornyi on 13/07/2022.
 //
+#include "hardware/irq.h"
 #include "main.h"
 #include "timers.h"
 
 #define WS2812_STATE_MACHINE 0
 #define WS2812_PIO pio0
+#define ERASING_COLOR1 (0xFFFFFF)
+#define ERASING_COLOR2 (0x30FF30)
+
 void indicator_cb(TimerHandle_t);
 
 static StaticTimer_t blinky_tmdef;
@@ -31,9 +35,10 @@ static volatile bool v_disk_xchange;
 static volatile bool v_uart_xchange;
 
 void disk_status(enum DISK_STATUS status, bool xchange) {
-     v_disk_status = status;
-     v_disk_xchange = xchange;
+    v_disk_status = status;
+    v_disk_xchange = xchange;
 }
+
 void uart_status(enum UART_STATUS status, bool xchange) {
     v_uart_status = status;
     v_uart_xchange = xchange;
@@ -41,48 +46,45 @@ void uart_status(enum UART_STATUS status, bool xchange) {
 
 static int v_disk_tick_counter = 0;
 static int v_uart_tick_counter = 0;
-void indicator_cb(TimerHandle_t xTimer)
-{
+static int v_button_tick_counter = 0;
+
+void indicator_cb(TimerHandle_t xTimer) {
     (void) xTimer;
     uint32_t grb;
     switch (v_disk_status) {
-        case DISK_STATUS_ERASING:
-            v_disk_tick_counter = (v_disk_tick_counter + 1) % 10;
-            grb = (v_disk_tick_counter < 5 ) ? 0x008000 : 0;
-            break;
         case DISK_STATUS_DOWN:
             grb = 0x00200;
             break;
         case DISK_STATUS_UP:
-            if(v_disk_xchange) {
+            if (v_disk_xchange) {
                 v_disk_xchange = false;
                 v_disk_tick_counter = 5;
             }
-            if(v_disk_tick_counter >0) {
+            if (v_disk_tick_counter > 0) {
                 v_disk_tick_counter--;
-                grb =  0x008000;
+                grb = 0x008000;
             } else {
-                grb =  0x001000;
+                grb = 0x001000;
             }
             break;
         case DISK_STATUS_NOINIT:
         default:
             v_disk_tick_counter = (v_disk_tick_counter + 1) % 20;
-            grb = (v_disk_tick_counter < 3 ) ? 0x002000 : 0x000200;
+            grb = (v_disk_tick_counter < 3) ? 0x002000 : 0x000200;
             break;
 
     }
     switch (v_uart_status) {
         case UART_STATUS_UP:
-            if(v_uart_xchange) {
+            if (v_uart_xchange) {
                 v_uart_xchange = false;
                 v_uart_tick_counter = 5;
             }
-            if(v_uart_tick_counter >0) {
+            if (v_uart_tick_counter > 0) {
                 v_uart_tick_counter--;
-                grb |=  0x800000;
+                grb |= 0x800000;
             } else {
-                grb |=  0x100000;
+                grb |= 0x100000;
             }
             break;
         case UART_STATUS_DOWN:
@@ -91,4 +93,19 @@ void indicator_cb(TimerHandle_t xTimer)
             break;
     }
     put_pixel(grb);
+    if (board_button_read()) {
+        v_button_tick_counter++;
+        if (v_button_tick_counter > 100) {
+            disk_erase();
+        }
+    } else {
+        v_button_tick_counter = 0;
+    }
+}
+
+void pixelErasing1() {
+    put_pixel(ERASING_COLOR1);
+}
+void pixelErasing2() {
+    put_pixel(ERASING_COLOR2);
 }

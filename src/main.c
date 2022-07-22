@@ -25,7 +25,7 @@
 #include "main.h"
 //todo gps data collection
 //todo baro data collection
-//todo button erase
+//todo verify button erase
 //todo ws2812 matrix data indication
 //todo altitude data table?
 //todo accu voltage control
@@ -66,6 +66,7 @@ int main(void) {
     board_init();
     tusb_init();
     indicator_init();
+    verify_partly_clean_flash();
     serial_init();
     disk_status(DISK_STATUS_NOINIT, false);
     uart_status(UART_STATUS_NOINIT, false);

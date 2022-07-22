@@ -12,8 +12,7 @@
 enum DISK_STATUS {
     DISK_STATUS_NOINIT,
     DISK_STATUS_UP,
-    DISK_STATUS_DOWN,
-    DISK_STATUS_ERASING
+    DISK_STATUS_DOWN
 };
 
 enum UART_STATUS {
@@ -95,6 +94,14 @@ void fillBootSector(uint8_t *ptr, size_t bytesToRead);
 
 void fillFat(unsigned int fatLba, uint8_t *ptr, size_t bytesLeft);
 
+/**
+ *
+ * @return true when last part is erased
+ */
+void verify_partly_clean_flash();
+
+void _Noreturn disk_erase();
+
 unsigned int gpxFileClustersNoTail();
 
 unsigned long gpxFileLength();
@@ -110,8 +117,12 @@ unsigned int uI64ToCharArray(uint8_t *string, uint64_t value, unsigned int digit
 
 void csvFillDataSector(unsigned int dataLba, uint8_t *ptr, int bytesLeft);
 
+void pixelErasing1();
+void pixelErasing2();
+
 #define WORD_TO_BYTES(w) ((unsigned char) (w)), ((unsigned char) (((unsigned int) (w)) >> 8))
 #define DWORD_TO_BYTES(d) ((unsigned char) (d)), ((unsigned char) (((unsigned int) (d)) >> 8)), \
                             ((unsigned char) (((unsigned int) (d)) >> 16)), ((unsigned char) (((unsigned int) (d)) >> 24))
+
 
 #endif //RP2040_DATA_LOGGER_MAIN_H
